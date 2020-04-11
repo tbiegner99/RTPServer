@@ -1,0 +1,13 @@
+v=0
+s=Channel
+c=IN IP4 127.0.0.1
+a=recvonly
+a=unicast
+m=audio 4590 RTP/AVP 14
+a=control:audio
+a=rtpmap:14 mpa/44100/2
+a=fmtp:14 profile-level-id=15; mode=AAC-hbr; SizeLength=13; IndexLength=3; IndexDeltaLength=3; Profile=1; streamtype=5; object=107; config=02
+m=video 4592 RTP/AVP 96
+a=control:video
+a=rtpmap:96 H264/15360
+a=fmtp:96 packetization-mode=1;profile-level-id=66;sprop-parameter-sets=Z0LAKNoCgPaEAAADAAQAAAMA8DxgyoA=,aM4PyA==
