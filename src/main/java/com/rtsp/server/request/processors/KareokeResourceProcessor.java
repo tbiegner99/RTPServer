@@ -9,7 +9,14 @@ import com.rtsp.server.response.SDPGenerator;
 
 public class KareokeResourceProcessor extends AbstractResourceProcessor {
 
+    public static final Integer KAREOKE_SESSION_ID = -1;
+
     private final Playlist playlist;
+
+    @Override
+    public Integer getSessionId() {
+        return KAREOKE_SESSION_ID;
+    }
 
     public KareokeResourceProcessor() {
         ApiEndpointSource apiServiceInfo = new ApiEndpointSource("http://127.0.0.1:8080");

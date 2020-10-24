@@ -18,4 +18,6 @@ public interface MediaStream extends Stream {
     int getClockTicksAtTime(float timeInSeconds);
 
     int getLastSequenceNumber();
+
+    long getRealStartTime();
 }

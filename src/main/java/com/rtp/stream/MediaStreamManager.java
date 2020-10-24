@@ -9,5 +9,5 @@ public interface MediaStreamManager extends Stream {
 
     void createMediaStream(Playlist playlist, StreamType type, SocketManager socketManager) throws IOException;
 
-
+    void skipCurrent() throws IOException;
 }

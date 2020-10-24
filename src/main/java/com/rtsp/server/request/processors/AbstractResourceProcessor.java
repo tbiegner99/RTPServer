@@ -113,6 +113,10 @@ public abstract class AbstractResourceProcessor implements ResourceProcessor {
         }
     }
 
+    public Integer getSessionId() {
+        return -1;
+    }
+
     @Override
     public Builder processSetup(RTSPRequest request, Builder builder, RTSPConnection connection) {
         try {
@@ -124,7 +128,7 @@ public abstract class AbstractResourceProcessor implements ResourceProcessor {
                     .withClientPort(clientPorts.get(0))
                     .build();
             Playlist playlist = this.getPlaylist(request);
-            SessionInfo session = this.sessionManager.getOrCreateSession(request);
+            SessionInfo session = this.sessionManager.getOrCreateSession(request, this.getSessionId());
             session.getStreamManager().createMediaStream(playlist, streamType, socketManager);
             session.getStreamManager().addMediaListener(new RTSPSessionNotifier(session, connection));
             int serverPort = socketManager.getLocalPort();

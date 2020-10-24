@@ -21,6 +21,7 @@ public class AVStreamManager implements MediaStreamManager, MediaListener {
     private boolean repeat;
     private List<MediaListener> listeners;
     private float totalTime = 0;
+    private long realTime = 0;
 
 
     public AVStreamManager() {
@@ -78,6 +79,7 @@ public class AVStreamManager implements MediaStreamManager, MediaListener {
     public void start() {
         videoStream.ifPresent(MediaStream::start);
         audioStream.ifPresent(MediaStream::start);
+        this.realTime = System.currentTimeMillis();
         this.state = StreamState.PLAYING;
     }
 
@@ -102,6 +104,19 @@ public class AVStreamManager implements MediaStreamManager, MediaListener {
         audioStream.ifPresent(MediaStream::terminate);
         this.state = StreamState.FINISHED;
 
+    }
+
+    @Override
+    public void skipCurrent() throws IOException {
+        if (playlist.canSkip()) {
+            videoStream.ifPresent(MediaStream::terminate);
+            audioStream.ifPresent(MediaStream::terminate);
+            float elapsedTimeInSeconds = (System.currentTimeMillis() - realTime) / 1000f;
+            float nextTrackStart = totalTime + elapsedTimeInSeconds + 5;
+            totalTime = nextTrackStart;
+            playlist.next();
+            loadNextMedia(totalTime);
+        }
     }
 
     @Override
@@ -139,13 +154,19 @@ public class AVStreamManager implements MediaStreamManager, MediaListener {
         if (areAllStreamsFinished()) {
             if (!playlist.hasNext()) {
                 //terminate manager
+            } else {
+                MediaInfo oldItem = playlist.getCurrentItem();
+                MediaInfo newItem = playlist.next();
+                this.onMediaChanged(newItem, oldItem);
             }
-            MediaInfo oldItem = playlist.getCurrentItem();
-            MediaInfo newItem = playlist.next();
-            this.onMediaChanged(newItem, oldItem);
-
         }
 
+    }
+
+    public void loadNextMedia(float initialTimestampInSeconds) throws IOException {
+        videoStream = resetStream(videoStream, initialTimestampInSeconds);
+        audioStream = resetStream(audioStream, initialTimestampInSeconds);
+        this.start();
     }
 
     @Override
@@ -155,9 +176,7 @@ public class AVStreamManager implements MediaStreamManager, MediaListener {
         }
         totalTime += oldMedia.getDurationInSeconds();
         float initialTimestampInSeconds = totalTime;
-        videoStream = resetStream(videoStream, initialTimestampInSeconds);
-        audioStream = resetStream(audioStream, initialTimestampInSeconds);
-        this.start();
+        loadNextMedia(initialTimestampInSeconds);
     }
 
 

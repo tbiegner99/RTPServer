@@ -17,8 +17,8 @@ import static com.http.HttpMethod.GET;
 public class KareokePlaylistServiceSource implements PlaylistSource<PlaylistItem> {
 
     private static final int DEFAULT_PLAYLIST_ID = 1;
-    private static final String PEEK_URL = "/kareoke/playlist/" + DEFAULT_PLAYLIST_ID + "/items/peek";
-    private static final String DEQUEUE_URL = "/kareoke/playlist/" + DEFAULT_PLAYLIST_ID + "/items/dequeue";
+    private static final String PEEK_URL = "/api/kareoke/playlist/" + DEFAULT_PLAYLIST_ID + "/items/peek";
+    private static final String DEQUEUE_URL = "/api/kareoke/playlist/" + DEFAULT_PLAYLIST_ID + "/items/dequeue";
 
     private ApiEndpointSource source;
 

@@ -19,6 +19,9 @@ public class ElementaryStream extends Thread implements MediaStream {
     private StreamState state;
     private boolean isStarted = false;
     private boolean finished;
+
+    private long trackStart;
+
     private StreamType streamType;
 
     public ElementaryStream(StreamType type, SocketManager socket) {
@@ -34,24 +37,29 @@ public class ElementaryStream extends Thread implements MediaStream {
         this.initialTimeOffset = initialTimeOffset;
     }
 
+    @Override
     public void setupMedia(RTPPacketGenerator generator) {
         if (this.generator == null) {
             this.generator = generator;
         }
     }
 
+    @Override
     public RTPPacketGenerator getCurrentMedia() {
         return this.generator;
     }
 
+    @Override
     public MediaInfo getMediaInfo() {
         return getCurrentMedia().getTrackInfo().getMediaInfo();
     }
 
+    @Override
     public SocketManager getSocketManager() {
         return socketManager;
     }
 
+    @Override
     public void addMediaListener(MediaListener listener) {
         this.listeners.add(listener);
     }
@@ -60,6 +68,7 @@ public class ElementaryStream extends Thread implements MediaStream {
         this.listeners.remove(listener);
     }
 
+    @Override
     public StreamType getType() {
         return streamType;
     }
@@ -74,6 +83,11 @@ public class ElementaryStream extends Thread implements MediaStream {
     }
 
     @Override
+    public long getRealStartTime() {
+        return this.trackStart;
+    }
+
+    @Override
     public void play() {
         if (!this.isStarted) {
             start();
@@ -82,7 +96,7 @@ public class ElementaryStream extends Thread implements MediaStream {
     }
 
     @Override
-	public void start() {
+    public void start() {
         super.start();
         this.isStarted = true;
     }
@@ -99,16 +113,18 @@ public class ElementaryStream extends Thread implements MediaStream {
 
     }
 
+    @Override
     public int getLastSequenceNumber() {
         return lastSequenceNumber;
     }
 
+    @Override
     public StreamState getStreamState() {
         return state;
     }
 
     @Override
-	public void run() {
+    public void run() {
         RTPPacket packet = null;
         try {
             int timestampOffset = (int) (initialTimeOffset * getClockRate());
@@ -116,7 +132,7 @@ public class ElementaryStream extends Thread implements MediaStream {
             boolean log = true;
             boolean didPlay = false;
             this.state = StreamState.READY;
-            long trackStart = System.currentTimeMillis();
+            this.trackStart = System.currentTimeMillis();
             while (isStarted && generator != null && generator.hasNext()) {
                 long clockRate = getClockRate();
                 this.state = StreamState.PLAYING;
@@ -151,10 +167,11 @@ public class ElementaryStream extends Thread implements MediaStream {
             }
             this.finished = true;
             this.state = StreamState.FINISHED;
-            for (MediaListener listener : listeners) {
-                listener.onMediaFinished(this, generator.getTrackInfo());
+            if (!this.isTerminated) {
+                for (MediaListener listener : listeners) {
+                    listener.onMediaFinished(this, generator.getTrackInfo());
+                }
             }
-            ;
 
             socketManager.close();
         } catch (Exception e) {

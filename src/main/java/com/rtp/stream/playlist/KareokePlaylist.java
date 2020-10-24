@@ -51,12 +51,22 @@ public class KareokePlaylist implements Playlist {
     }
 
     @Override
+    public boolean canSkip() {
+        return !isCurrentItemPlaceholder;
+    }
+
+    @Override
     public MediaInfo next() throws IOException {
         String resource;
         if (isCurrentItemPlaceholder) {
-            Optional<PlaylistItem> item = source.dequeue();
-            isCurrentItemPlaceholder = !item.isPresent();
-            resource = item.map(PlaylistItem::getFileLocation).orElse(getPlaceholderVideo());
+            try {
+                Optional<PlaylistItem> item = source.dequeue();
+                isCurrentItemPlaceholder = !item.isPresent();
+                resource = item.map(PlaylistItem::getFileLocation).orElse(getPlaceholderVideo());
+            } catch (IOException e) {
+                resource = getPlaceholderVideo();
+                isCurrentItemPlaceholder = true;
+            }
         } else {
             resource = getPlaceholderVideo();
             isCurrentItemPlaceholder = true;

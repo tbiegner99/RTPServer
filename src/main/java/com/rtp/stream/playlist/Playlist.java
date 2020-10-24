@@ -15,4 +15,8 @@ public interface Playlist {
     MediaInfo getCurrentItem();
 
     void setRepeatMode(RepeatMode mode);
+
+    default boolean canSkip() {
+        return true;
+    }
 }
