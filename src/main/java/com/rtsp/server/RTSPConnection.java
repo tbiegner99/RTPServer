@@ -1,100 +1,135 @@
 package com.rtsp.server;
 
+import com.rtsp.server.exceptions.InvalidOperationException;
+import com.rtsp.server.exceptions.InvalidResourceException;
+import com.rtsp.server.request.RTSPRequest;
+import com.rtsp.server.request.RTSPRequestProcessor;
+import com.rtsp.server.request.RTSPRequestReader;
+import com.rtsp.server.response.RTSPResponse;
+
 import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.URI;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Consumer;
-
-import com.rtsp.server.request.RTSPRequest;
-import com.rtsp.server.request.RTSPRequestFactory;
-import com.rtsp.server.exceptions.InvalidOperationException;
-import com.rtsp.server.exceptions.InvalidResourceException;
-import com.rtsp.server.request.RTSPRequestProcessor;
-import com.rtsp.server.response.RTSPResponse;
 
 public class RTSPConnection extends Thread {
-	private BufferedInputStream input;
-	private PrintWriter output;
-	private RTSPRequestFactory requestParser;
-	private RTSPRequestProcessor requestProcessor;
-	private Socket socket;
-	private Integer lastSequenceNumber;
-	private URI currentResource;
+    private BufferedInputStream input;
+    private PrintWriter output;
+    private RTSPRequestReader requestParser;
+    private RTSPRequestProcessor requestProcessor;
+    private Socket socket;
+    private Integer lastSequenceNumber;
+    private URI currentResource;
 
-	public RTSPConnection(Socket socket) throws IOException {
-		this.input = new BufferedInputStream(socket.getInputStream());
-		this.socket = socket;
-		this.output = new PrintWriter(socket.getOutputStream());
-		this.requestParser = new RTSPRequestFactory(this.input);
-		this.requestProcessor =new RTSPRequestProcessor();
-	}
+    public RTSPConnection(Socket socket) throws IOException {
+        //this.input = new BufferedInputStream(socket.getInputStream());
+        this.socket = socket;
+        this.output = new PrintWriter(socket.getOutputStream());
 
-	public void waitForAvailableRequest() {
-		while (!requestParser.hasNextRequest()) {
-			try {
-				Thread.sleep(50);
-			} catch (Exception e) {
-			}
-		}
-	}
+        this.requestProcessor = new RTSPRequestProcessor();
+        this.requestParser = new RTSPRequestReader(this.socket);
+        this.requestParser.setRequestListener(this::onRequestReceived);
+        this.requestParser.setSocketDisconnectListener(this::onSocketDisconnect);
 
-	public void waitForAvailableResponse() {
-		while (!requestParser.hasNextResponse()) {
-			try {
-				Thread.sleep(50);
-			} catch (Exception e) {
-			}
-		}
-	}
+    }
 
-	public void run() {
+   /* public void waitForAvailableRequest() throws IOException {
+        while (input.available() > 0 && !requestParser.hasNextRequest()) {
+            try {
+                Thread.sleep(50);
+            } catch (Exception e) {
+            }
+        }
+    }*/
 
-		while (socket.isConnected()) {
-			waitForAvailableRequest();
-			RTSPRequest request;
-			RTSPResponse response;
-			try {
-				request = requestParser.nextRequest(socket.getInetAddress());
-				lastSequenceNumber=request.getSeqNum();
-				currentResource = request.getURI();
-				response = requestProcessor.processRequest(request,this);
+    public void waitForAvailableResponse() {
+        while (!requestParser.hasNextResponse()) {
+            try {
+                Thread.sleep(50);
+            } catch (Exception e) {
+            }
+        }
+    }
 
-			} catch (InvalidResourceException e) {
-				response = RTSPResponse.builder(e.getSeqNum())
-						.code(404, "Not Found").build();
-			} catch (InvalidOperationException e) {
-				response = RTSPResponse.builder(e.getSeqNum())
-						.code(405, "Method Not Supported").build();
-			}
-			this.writeToSocket(response.networkPrint());
-		}
-		try {
-			socket.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		output.close();
-	}
+    public void onRequestReceived(RTSPRequest request) {
+        RTSPResponse response;
+        try {
+            lastSequenceNumber = request.getSeqNum();
+            currentResource = request.getURI();
+            response = requestProcessor.processRequest(request, this);
 
-	private void writeToSocket(String data) {
-		System.out.println(data.replace("\r\n", "\\r\\n\r\n"));
-		output.print(data);
-		output.flush();
-	}
+        } catch (InvalidResourceException e) {
+            response = RTSPResponse.builder(e.getSeqNum())
+                    .code(404, "Not Found").build();
+        } catch (InvalidOperationException e) {
+            response = RTSPResponse.builder(e.getSeqNum())
+                    .code(405, "Method Not Supported").build();
+        }
+        this.writeToSocket(response.networkPrint());
+    }
 
-	public Integer getLastSequenceNumber() {
-		return lastSequenceNumber;
-	}
+    public void onSocketDisconnect() {
+        try {
+            socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        output.close();
+    }
 
-	public RTSPResponse sendRequest(RTSPRequest req) {
-		lastSequenceNumber=req.getSeqNum();
-		writeToSocket(req.toNetworkString());
-		waitForAvailableResponse();
-		return requestParser.nextResponse();
-	}
+    @Override
+    public void run() {
+        this.requestParser.start();
+       /* while (socket.isConnected()) {
+            try {
+                waitForAvailableRequest();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            RTSPRequest request;
+            RTSPResponse response;
+            try {
+                request = requestParser.nextRequest(socket.getInetAddress());
+                if (request == null) {
+                    continue;
+                }
+                lastSequenceNumber = request.getSeqNum();
+                currentResource = request.getURI();
+                response = requestProcessor.processRequest(request, this);
+
+            } catch (InvalidResourceException e) {
+                response = RTSPResponse.builder(e.getSeqNum())
+                        .code(404, "Not Found").build();
+            } catch (InvalidOperationException e) {
+                response = RTSPResponse.builder(e.getSeqNum())
+                        .code(405, "Method Not Supported").build();
+            }
+            this.writeToSocket(response.networkPrint());
+        }
+        try {
+            socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        output.close();*/
+    }
+
+    private void writeToSocket(String data) {
+        System.out.println(data.replace("\r\n", "\\r\\n\r\n"));
+        output.print(data);
+        output.flush();
+    }
+
+    public Integer getLastSequenceNumber() {
+        return lastSequenceNumber;
+    }
+
+    public RTSPResponse sendRequest(RTSPRequest req) {
+        lastSequenceNumber = req.getSeqNum();
+        writeToSocket(req.toNetworkString());
+        waitForAvailableResponse();
+        return requestParser.nextResponse();
+    }
 
 }

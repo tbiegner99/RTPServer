@@ -41,9 +41,23 @@ public class EditListBox extends FullBox {
         return Collections.unmodifiableList(mediaEdits);
     }
 
+    private long computeOffsetTime() {
+        long emptyTime = 0;
+        for (MediaEdit edit : mediaEdits) {
+            if (edit.isEmpty()) {
+                emptyTime += edit.getDuration();
+            } else {
+                break;
+            }
+
+        }
+        return emptyTime;
+    }
+
+
     @Override
     public void updateContext(MediaInfoBuilder context) {
-        // TODO Auto-generated method stub
+        context.currentTrack().addStartOffset(this.computeOffsetTime());
 
     }
 

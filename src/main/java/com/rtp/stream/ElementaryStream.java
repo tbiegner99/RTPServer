@@ -3,6 +3,7 @@ package com.rtp.stream;
 import com.rtp.packet.RTPPacket;
 import com.rtp.packet.RTPPacketGenerator;
 import com.rtp.stream.socket.SocketManager;
+import com.rtsp.server.ApplicationProperties;
 import com.tj.mp4.MediaInfo;
 
 import java.util.ArrayList;
@@ -127,14 +128,14 @@ public class ElementaryStream extends Thread implements MediaStream {
     public void run() {
         RTPPacket packet = null;
         try {
-            int timestampOffset = (int) (initialTimeOffset * getClockRate());
+            long clockRate = getClockRate();
+            float trackOffsetSeconds = generator.getTrackInfo().getOffset() / 1000f;
+            int timestampOffset = (int) ((initialTimeOffset + trackOffsetSeconds) * clockRate);
             int sequenceNumberOffset = this.lastSequenceNumber + 1;
-            boolean log = true;
-            boolean didPlay = false;
+            boolean log = ApplicationProperties.getProperty("RTP_LOGGING") == "true";
             this.state = StreamState.READY;
             this.trackStart = System.currentTimeMillis();
             while (isStarted && generator != null && generator.hasNext()) {
-                long clockRate = getClockRate();
                 this.state = StreamState.PLAYING;
                 packet = generator.next();
                 long trackTime = (System.currentTimeMillis() - trackStart);
@@ -148,7 +149,7 @@ public class ElementaryStream extends Thread implements MediaStream {
                         .build();
                 if (currentTimestamp - trackTime > 0) {
                     try {
-                        Thread.sleep((currentTimestamp - trackTime));
+                        Thread.sleep(currentTimestamp - trackTime);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -162,16 +163,13 @@ public class ElementaryStream extends Thread implements MediaStream {
                     break;
                 }
                 socketManager.writeData(packet.toNetworkData());
-                didPlay = true;
-
             }
             this.finished = true;
             this.state = StreamState.FINISHED;
-            if (!this.isTerminated) {
-                for (MediaListener listener : listeners) {
-                    listener.onMediaFinished(this, generator.getTrackInfo());
-                }
+            for (MediaListener listener : listeners) {
+                listener.onMediaFinished(this, generator.getTrackInfo());
             }
+
 
             socketManager.close();
         } catch (Exception e) {

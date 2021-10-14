@@ -4,6 +4,7 @@ import com.rtp.stream.playlist.KareokePlaylist;
 import com.rtp.stream.playlist.Playlist;
 import com.rtp.stream.playlist.source.KareokePlaylistServiceSource;
 import com.rtp.stream.playlist.source.params.ApiEndpointSource;
+import com.rtsp.server.ApplicationProperties;
 import com.rtsp.server.request.RTSPRequest;
 import com.rtsp.server.response.SDPGenerator;
 
@@ -19,7 +20,7 @@ public class KareokeResourceProcessor extends AbstractResourceProcessor {
     }
 
     public KareokeResourceProcessor() {
-        ApiEndpointSource apiServiceInfo = new ApiEndpointSource("http://127.0.0.1:8080");
+        ApiEndpointSource apiServiceInfo = new ApiEndpointSource(ApplicationProperties.getProperty("PLAYLIST_SERVER_URL"));
         KareokePlaylistServiceSource source = new KareokePlaylistServiceSource(apiServiceInfo);
         this.playlist = new KareokePlaylist(source);
     }

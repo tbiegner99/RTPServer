@@ -1,0 +1,35 @@
+version: "3.3"
+services:
+
+  db:
+    image: library/mysql:5.7
+    restart: always
+    container_name: db
+    environment:
+      MYSQL_ROOT_PASSWORD: "cah_db_user@#!"
+    ports:
+      - 3306:3306
+    volumes:
+      - ../data:/var/lib/mysql
+  cah:
+    build: .
+    restart: always
+    container_name: cah
+    depends_on:
+      - redis
+      - db
+
+  router:
+    build: ./ui
+    restart: always
+    container_name: router
+    volumes:
+      - ./ui/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./ui/build:/srv/package/cah
+      - ./ui/nginx/certs:/etc/letsencrypt/live
+      - ./ui/nginx/data/certbot/conf:/etc/letsencrypt
+      - ./ui/nginx/data/certbot/www:/var/www/certbot
+    ports:
+      - 80:80
+      - 443:443
+    user: root

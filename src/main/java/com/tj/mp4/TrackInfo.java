@@ -36,6 +36,7 @@ public class TrackInfo {
     private List<CompositionOffset> compositionTimes;
     private MediaInfo mediaInfo;
     private int sampleRate;
+    private long offset;
     private long lengthInSeconds;
 
     private TrackInfo() {
@@ -51,6 +52,10 @@ public class TrackInfo {
             default:
                 return Type.OTHER;
         }
+    }
+
+    public long getOffset() {
+        return offset;
     }
 
     public boolean isVideoTrack() {
@@ -213,6 +218,13 @@ public class TrackInfo {
 
         public MediaInfoBuilder done() {
             return this.mediaInfo;
+        }
+
+        //Really we need to do more than jst empty time at start.
+        // edit lists are much more complex
+        public TrackInfoBuilder addStartOffset(long offset) {
+            this.item.offset = offset;
+            return this;
         }
 
         public TrackInfo build() {

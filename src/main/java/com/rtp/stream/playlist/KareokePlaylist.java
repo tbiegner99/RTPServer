@@ -47,7 +47,7 @@ public class KareokePlaylist implements Playlist {
 
 
     public String getPlaceholderVideo() {
-        return getFullFilePath("/screensavers/test/converted/discoball8.mp4");
+        return ApplicationProperties.getProperty("PLACEHOLDER_VIDEO");
     }
 
     @Override

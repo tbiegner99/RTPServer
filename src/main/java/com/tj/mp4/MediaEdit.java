@@ -7,6 +7,7 @@ public class MediaEdit {
     private short mediaRateInt;
     private short mediaRateFraction;
 
+
     public MediaEdit(long duration, long mediaTime, short mediaRateInt, short mediaRateFraction) {
         this.duration = duration;
         this.mediaTime = mediaTime;
@@ -28,6 +29,10 @@ public class MediaEdit {
 
     public short getMediaRateFraction() {
         return mediaRateFraction;
+    }
+
+    public boolean isEmpty() {
+        return mediaTime < 0;
     }
 
 }

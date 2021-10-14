@@ -26,6 +26,10 @@ public class ApplicationProperties {
     }
 
     public static String getProperty(String key) {
+        String envVar = System.getenv(key);
+        if (envVar != null) {
+            return envVar;
+        }
         return getApplicationProperties().getAppProperty(key);
     }
 
