@@ -1,28 +1,29 @@
 version: "3.3"
 services:
-
-  db:
-    image: library/mysql:5.7
-    restart: always
-    container_name: db
-    environment:
-      MYSQL_ROOT_PASSWORD: "cah_db_user@#!"
-    ports:
-      - 3306:3306
-    volumes:
-      - ../data:/var/lib/mysql
-  cah:
+  rtsp_server:
     build: .
     restart: always
-    container_name: cah
+    container_name: rtsp
+    environment:
+      - VIDEO_PATH: '/mnt/kareoke/video'
+      - KAREOKE_PATH: '/mnt/kareoke/Songs'
+      - HTTP_PORT: '8001'
+      - RTSP_PORT: '4586'
+      - PLAYLIST_SERVER_URL: 'http://kareoke-client:8080'
+      - PLACEHOLDER_VIDEO: '/mnt/kareoke/placeholder/discoball10.mp4'
+    ports:
+      - 4586:4586
+      - 8001:8001
     depends_on:
-      - redis
-      - db
+      - playlist
 
-  router:
+  ui:
     build: ./ui
     restart: always
     container_name: router
+    depends_on:
+      - playlist
+
     volumes:
       - ./ui/nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./ui/build:/srv/package/cah
