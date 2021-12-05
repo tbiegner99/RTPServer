@@ -1,12 +1,13 @@
 package com.rtsp.server.response;
 
 import com.rtp.packet.PayloadType;
+import com.rtsp.server.ApplicationProperties;
 import com.tj.mp4.TrackInfo;
 import com.tj.mp4.boxes.AVCConfigBox;
 import com.tj.mp4.descriptor.ESDescriptor;
 
+import java.io.File;
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -104,8 +105,9 @@ public class SDPGenerator {
     }
 
     public SDPGenerator fromResource(String resource) throws IOException, URISyntaxException {
-        URI file = getClass().getClassLoader().getResource(resource).toURI();
-        this.sdp = Optional.of(Files.readString(Path.of(file)));
+        String sdpFilePath = ApplicationProperties.getProperty("SDP_FILE");
+        File file = new File(sdpFilePath);
+        this.sdp = Optional.of(Files.readString(Path.of(file.toURI())));
         return this;
     }
 }

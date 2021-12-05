@@ -13,6 +13,7 @@ services:
       RTSP_PORT: '4586'
       PLAYLIST_SERVER_URL: 'http://kareoke-client:8080'
       PLACEHOLDER_VIDEO: '/mnt/kareoke/placeholder/discoball10.mp4'
+      SDP_FILE: '/srv/package/sdp/kareoke.sdp'
     ports:
       - 4586:4586
       - 8001:8001
