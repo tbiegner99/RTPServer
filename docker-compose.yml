@@ -4,6 +4,8 @@ services:
     build: .
     restart: always
     container_name: rtsp
+    volumes:
+      - "/mnt/kareoke:/mnt/kareoke"
     environment:
       VIDEO_PATH: '/mnt/kareoke/video'
       KAREOKE_PATH: '/mnt/kareoke/Songs'
