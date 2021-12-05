@@ -1,12 +1,12 @@
 FROM arm32v7/maven as build
 
-COPY ../ ./
+COPY ./ ./
 
 RUN mvn clean package -Pprod -Dmaven.test.skip=true
 
 FROM arm32v7/openjdk:11
-COPY --from=build ../target/lib ./target/lib
-COPY --from=build ../target/RTSPServer*-SNAPSHOT.jar ./RTSPServer.jar
+COPY --from=build ./target/lib ./target/lib
+COPY --from=build ./target/RTSPServer*-SNAPSHOT.jar ./RTSPServer.jar
 EXPOSE 8080
 
 CMD java -jar  ./RTSPServer.jar
