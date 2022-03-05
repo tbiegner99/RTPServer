@@ -14,4 +14,4 @@ COPY --from=build /srv/package/target/RTSPServer*-SNAPSHOT.jar /srv/package/RTSP
 ENV SDP_FILE=/srv/package/sdp/kareoke.sdp
 EXPOSE 8080
 
-CMD java -jar  ./RTSPServer.jar
+CMD java -Xmx 1G -jar  ./RTSPServer.jar
