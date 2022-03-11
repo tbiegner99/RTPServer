@@ -3,6 +3,7 @@ package com.rtp.stream;
 import com.rtp.packet.RTPPacketGenerator;
 import com.rtp.packet.RTPPacketGeneratorFactory;
 import com.rtp.stream.playlist.Playlist;
+import com.rtp.stream.playlist.PlaylistItem;
 import com.rtp.stream.socket.SocketManager;
 import com.tj.mp4.MediaInfo;
 import com.tj.mp4.TrackInfo;
@@ -17,6 +18,7 @@ public class AVStreamManager implements MediaStreamManager, MediaListener {
     private Optional<MediaStream> audioStream = Optional.empty();
     private Optional<MediaStream> videoStream = Optional.empty();
     private Playlist playlist;
+    private Optional<PlaylistItem> currentItem;
     private StreamState state = StreamState.INITIALIZING;
     private boolean repeat;
     private List<MediaListener> listeners;
@@ -50,7 +52,9 @@ public class AVStreamManager implements MediaStreamManager, MediaListener {
     private MediaStream setupStreamWithNextItemInPlaylist(StreamType streamType, SocketManager socketManager, int lastSequenceNumber, float initialTimeInSeconds) throws IOException {
         MediaStream stream = createStream(streamType, socketManager, lastSequenceNumber, initialTimeInSeconds);
         stream.addMediaListener(this);
+        //TODO: handle end of stream
         MediaInfo media = playlist.getCurrentItem();
+        this.currentItem = playlist.getCurrentItemMetadata();
         RTPPacketGenerator generator = RTPPacketGeneratorFactory.getPacketGenerator(streamType, media);
         stream.setupMedia(generator);
         return stream;
@@ -115,8 +119,14 @@ public class AVStreamManager implements MediaStreamManager, MediaListener {
             float nextTrackStart = totalTime + elapsedTimeInSeconds + 5;
             totalTime = nextTrackStart;
             playlist.next();
+            currentItem = playlist.getCurrentItemMetadata();
             loadNextMedia(totalTime);
         }
+    }
+
+    @Override
+    public Optional<PlaylistItem> getCurrentMedia() {
+        return currentItem;
     }
 
     @Override

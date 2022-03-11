@@ -29,7 +29,9 @@ public class RTPServer extends Thread {
             int httpPort = Integer.parseInt(ApplicationProperties.getProperty("HTTP_PORT"));
             new RTSPServer(4586).start();
             HttpRouteHandlers httpHandlers = new HttpRouteHandlers();
-            RouteHandler httpRoutes = new RouteHandler().post("/skipCurrent", httpHandlers::skipCurrentSong);
+            RouteHandler httpRoutes = new RouteHandler()
+                    .post("/skipCurrent", httpHandlers::skipCurrentSong)
+                    .get("/currentItem", httpHandlers::getCurrentSong);
             HttpServer.start(httpPort, httpRoutes);
         } catch (Exception e) {
             e.printStackTrace();

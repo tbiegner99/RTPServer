@@ -12,6 +12,7 @@ import java.util.Optional;
 public class KareokePlaylist implements Playlist {
     private final PlaylistSource source;
     private Optional<MediaInfo> currentItem;
+    private Optional<PlaylistItem> currentMetadata;
     private boolean isCurrentItemPlaceholder = false;
 
     private LinkedList<BasicPlaylistItem> items = new LinkedList<>();
@@ -62,14 +63,19 @@ public class KareokePlaylist implements Playlist {
             try {
                 Optional<PlaylistItem> item = source.dequeue();
                 isCurrentItemPlaceholder = !item.isPresent();
+                currentMetadata = item;
                 resource = item.map(PlaylistItem::getFileLocation).orElse(getPlaceholderVideo());
-            } catch (IOException e) {
+
+            } catch (Exception e) {
+                e.printStackTrace();
                 resource = getPlaceholderVideo();
                 isCurrentItemPlaceholder = true;
+                currentMetadata = Optional.empty();
             }
         } else {
             resource = getPlaceholderVideo();
             isCurrentItemPlaceholder = true;
+            this.currentMetadata = Optional.empty();
         }
 
         currentItem = Optional.of(MP4Reader.generateMediaInfo(resource));
@@ -80,5 +86,10 @@ public class KareokePlaylist implements Playlist {
     @Override
     public MediaInfo getCurrentItem() {
         return currentItem.orElse(null);
+    }
+
+    @Override
+    public Optional<PlaylistItem> getCurrentItemMetadata() {
+        return currentMetadata;
     }
 }

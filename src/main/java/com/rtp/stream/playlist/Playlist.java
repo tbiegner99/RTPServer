@@ -3,6 +3,7 @@ package com.rtp.stream.playlist;
 import com.tj.mp4.MediaInfo;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public interface Playlist {
 
@@ -18,5 +19,9 @@ public interface Playlist {
 
     default boolean canSkip() {
         return true;
+    }
+
+    default Optional<PlaylistItem> getCurrentItemMetadata() {
+        return Optional.empty();
     }
 }
