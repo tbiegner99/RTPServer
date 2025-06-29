@@ -7,10 +7,7 @@ import com.rtsp.server.response.RTSPResponse;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.InetAddress;
-import java.net.Socket;
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.net.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -20,8 +17,8 @@ import java.util.function.Consumer;
 public class RTSPRequestReader extends Thread {
 
     private final Socket socket;
-    private Scanner scanner;
-    private InputStream stream;
+    private final Scanner scanner;
+    private final InputStream stream;
     private String lastData = null;
     private Optional<Consumer<RTSPRequest>> requestListener = Optional.empty();
     private Optional<Runnable> socketDisconnnectListener = Optional.empty();
@@ -34,6 +31,18 @@ public class RTSPRequestReader extends Thread {
 
     }
 
+    private static Map<String, String> readResponseHeaders(Scanner scanner) {
+        Map<String, String> headers = new HashMap<String, String>();
+        while (scanner.hasNextLine()) {
+            String headerLine = scanner.nextLine();
+            String[] headerPieces = headerLine.split(":");
+            if (headerPieces.length == 2) {
+                headers.put(headerPieces[0].trim(), headerPieces[1].trim());
+            }
+        }
+        return headers;
+    }
+
     public void setSocketDisconnectListener(Runnable onSocketDisconnect) {
         this.socketDisconnnectListener = Optional.of(onSocketDisconnect);
     }
@@ -42,25 +51,17 @@ public class RTSPRequestReader extends Thread {
         this.requestListener = Optional.of(onRequestReceived);
     }
 
-    public void waitForData() throws IOException {
-        while (stream.available() == 0) {
-            try {
-                Thread.sleep(50);
-            } catch (InterruptedException e) {
-            }
-        }
-    }
-
     @Override
     public void run() {
         while (!socket.isClosed()) {
             try {
-                waitForData();
                 String data = readAvailableData();
                 if (isDataRTSPRequest(data)) {
                     RTSPRequest req = this.parseRequest(data);
                     this.requestListener.ifPresent(listener -> listener.accept(req));
                 }
+            } catch (SocketException e) {
+                break;
             } catch (IOException | InvalidResourceException e) {
                 continue;
             }
@@ -93,18 +94,6 @@ public class RTSPRequestReader extends Thread {
         } catch (IOException e) {
             return false;
         }
-    }
-
-    private static Map<String, String> readResponseHeaders(Scanner scanner) {
-        Map<String, String> headers = new HashMap<String, String>();
-        while (scanner.hasNextLine()) {
-            String headerLine = scanner.nextLine();
-            String[] headerPieces = headerLine.split(":");
-            if (headerPieces.length == 2) {
-                headers.put(headerPieces[0].trim(), headerPieces[1].trim());
-            }
-        }
-        return headers;
     }
 
     public synchronized RTSPResponse nextResponse() {
@@ -149,10 +138,12 @@ public class RTSPRequestReader extends Thread {
             String value = scanner.nextLine().trim();
             processHeader(key, value, builder);
         }
-        scanner.close();
+
+//        scanner.close();
         try {
+            var resource = new URI(url);
             builder.type(requestType)
-                    .resource(new URI(url))
+                    .resource(resource)
                     .version(version);
         } catch (URISyntaxException e) {
             Integer seqNum = builder.build().getSeqNum();
@@ -204,8 +195,15 @@ public class RTSPRequestReader extends Thread {
         return !rawData.startsWith("RTSP/1.0");
     }
 
-    private String readAvailableData() {
+    private String readAvailableData() throws IOException {
         StringBuilder builder = new StringBuilder();
+        int c = stream.read();
+        if (c == -1) {
+            System.out.println("ClientDisconnected");
+            socket.close();
+            throw new IOException("Client disconnected");
+        }
+        builder.append((char) c);
         while (scanner.hasNextLine()) {
             String line = scanner.nextLine();
             if (line.isEmpty()) {

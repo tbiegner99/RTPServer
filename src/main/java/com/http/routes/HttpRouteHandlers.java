@@ -2,9 +2,8 @@ package com.http.routes;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rtp.stream.playlist.PlaylistItem;
-import com.rtsp.server.request.processors.KareokeResourceProcessor;
-import com.rtsp.server.session.SessionInfo;
-import com.rtsp.server.session.SessionManager;
+import com.rtsp.server.rooms.Room;
+import com.rtsp.server.rooms.RoomManager;
 import io.undertow.server.HttpServerExchange;
 
 import java.util.Optional;
@@ -14,12 +13,13 @@ public class HttpRouteHandlers {
     public Object getCurrentSong(HttpServerExchange exchange) {
         try {
             ObjectMapper mapper = new ObjectMapper();
-            SessionInfo session = SessionManager.getSessionManager().getSession(KareokeResourceProcessor.KAREOKE_SESSION_ID);
-            if (session == null) {
+            String roomId = exchange.getQueryParameters().get("roomId").getFirst();
+            Room room = RoomManager.getRoomManager().getRoom(roomId);
+            if (room == null) {
                 exchange.setStatusCode(418);
                 return null;
             }
-            Optional<PlaylistItem> currentItem = session.getStreamManager().getCurrentMedia();
+            Optional<PlaylistItem> currentItem = room.getStreamManager().getCurrentMedia();
             if (currentItem.isEmpty()) {
                 exchange.setStatusCode(204);
                 return null;
@@ -37,13 +37,14 @@ public class HttpRouteHandlers {
 
     public Object skipCurrentSong(HttpServerExchange exchange) {
         try {
-            ObjectMapper mapper = new ObjectMapper();
-            SessionInfo session = SessionManager.getSessionManager().getSession(KareokeResourceProcessor.KAREOKE_SESSION_ID);
-            if (session == null) {
+            String roomId = exchange.getQueryParameters().get("roomId").getFirst();
+            Room room = RoomManager.getRoomManager().getRoom(roomId);
+            if (room == null) {
                 exchange.setStatusCode(418);
+                exchange.setReasonPhrase("Fuck off");
                 return null;
             }
-            session.getStreamManager().skipCurrent();
+            room.getStreamManager().skipCurrent();
             exchange.setStatusCode(204);
 
         } catch (Exception ex) {

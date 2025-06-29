@@ -1,17 +1,16 @@
 package com.rtsp.server.session;
 
-import com.rtp.stream.AVStreamManager;
-import com.rtp.stream.MediaStreamManager;
 import com.rtsp.server.request.RTSPRequest;
+import com.rtsp.server.rooms.Room;
 
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 
 public class SessionManager {
-    private Map<Integer, SessionInfo> sessions;
-    private int sessionCount = 0;
     private static SessionManager sessionManager;
+    private final Map<Integer, SessionInfo> sessions;
+    private int sessionCount = 0;
 
     private SessionManager() {
         sessions = new HashMap<>();
@@ -24,17 +23,13 @@ public class SessionManager {
         return sessionManager;
     }
 
-    public SessionInfo newSession(MediaStreamManager stream, URI resource, Integer sessionId) {
+    public SessionInfo newSession(Room room, URI resource, Integer sessionId, RTSPRequest request) {
         Integer id = sessionId == null ? sessionCount++ : sessionId;
-        SessionInfo sess = new SessionInfo(id, resource, stream);
+        SessionInfo sess = new SessionInfo(id, resource, request.getRequestType(), room);
         sessions.put(sess.getId(), sess);
         return sess;
     }
 
-
-    public SessionInfo newSession(MediaStreamManager stream, URI resource) {
-        return newSession(stream, resource, null);
-    }
 
     public void endSession(Integer sessionId) {
         sessions.remove(sessionId);
@@ -51,13 +46,13 @@ public class SessionManager {
         return sessions.get(sessionId);
     }
 
-    public SessionInfo getOrCreateSession(RTSPRequest request, Integer sessionId) {
+    public SessionInfo getOrCreateSession(RTSPRequest request, Integer sessionId, Room room) {
 
         SessionInfo session = getSession(request);
         if (session == null) {
             int lastPathCompIndex = request.getResource().lastIndexOf("/");
             String newPath = request.getResource().substring(0, lastPathCompIndex);
-            session = sessionManager.newSession(new AVStreamManager(), URI.create(newPath), sessionId);
+            session = sessionManager.newSession(room, URI.create(newPath), sessionId, request);
         }
         return session;
     }

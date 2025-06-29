@@ -1,17 +1,23 @@
-ARG ARCH=
-FROM ${ARCH}maven as build
-WORKDIR /srv/package
+# Use Maven to build the project in a build stage
+FROM maven:3.9.6-eclipse-temurin-17 AS build
+WORKDIR /app
+COPY pom.xml ./
+COPY src ./src
+COPY sdp ./sdp
+COPY Application.properties ./Application.properties
+RUN mvn clean package -DskipTests
 
-COPY ./ ./
+# Use Eclipse Temurin OpenJDK 17 as the runtime image
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+# Copy the built JAR from the build stage
+COPY --from=build /app/target/RTSPServer-1.0-SNAPSHOT.jar ./RTSPServer.jar
 
-RUN mvn clean package -Pprod -Dmaven.test.skip=true
+ENV PORT=4586
+ENV HTTP_PORT=8001
 
-FROM ${ARCH}openjdk:11
-WORKDIR /srv/package
-COPY ./sdp /srv/package/sdp
-COPY --from=build /srv/package/target/lib /srv/package/lib
-COPY --from=build /srv/package/target/RTSPServer*-SNAPSHOT.jar /srv/package/RTSPServer.jar
-ENV SDP_FILE=/srv/package/sdp/kareoke.sdp
-EXPOSE 8080
+EXPOSE 4586
+EXPOSE 8001
 
-CMD java -Xmx 1G -jar  ./RTSPServer.jar
+ENTRYPOINT ["java", "-jar", "RTSPServer.jar"]
+

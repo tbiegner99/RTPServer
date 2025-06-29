@@ -16,16 +16,25 @@ import static com.http.HttpMethod.GET;
 
 public class KareokePlaylistServiceSource implements PlaylistSource<PlaylistItem> {
 
-    private static final int DEFAULT_PLAYLIST_ID = 1;
-    private static final String PEEK_URL = "/api/kareoke/playlist/" + DEFAULT_PLAYLIST_ID + "/items/peek";
-    private static final String DEQUEUE_URL = "/api/kareoke/playlist/" + DEFAULT_PLAYLIST_ID + "/items/dequeue";
+    private final String playlistId;
+    private final ApiEndpointSource source;
 
-    private ApiEndpointSource source;
-
-    public KareokePlaylistServiceSource(ApiEndpointSource serverSource) {
+    public KareokePlaylistServiceSource(ApiEndpointSource serverSource, String playlistId) {
         this.source = serverSource;
+        this.playlistId = playlistId;
     }
 
+    private String getPlaylistId() {
+        return this.playlistId;
+    }
+
+    private String getDequeueUrl() {
+        return String.format("/api/kareoke/playlist/%s/items/dequeue", getPlaylistId());
+    }
+
+    private String getPeekUrl() {
+        return String.format("/api/kareoke/playlist/%s/items/peek", getPlaylistId());
+    }
 
     @Override
     public List<PlaylistItem> getPlaylistItems() {
@@ -34,7 +43,7 @@ public class KareokePlaylistServiceSource implements PlaylistSource<PlaylistItem
 
     @Override
     public Optional<PlaylistItem> peek() throws IOException {
-        HttpResponse<KareokePlaylistItemResponse> playlistItemResponse = new HttpRequestBuilder(source.getUrlFromPath(PEEK_URL))
+        HttpResponse<KareokePlaylistItemResponse> playlistItemResponse = new HttpRequestBuilder(source.getUrlFromPath(getPeekUrl()))
                 .method(GET)
                 .send(KareokePlaylistItemResponse.class, ResponseType.JSON);
         return playlistItemResponse.getBody().map(KareokePlaylistItemResponse::toPlaylistItem);
@@ -43,7 +52,7 @@ public class KareokePlaylistServiceSource implements PlaylistSource<PlaylistItem
     @Override
     public Optional<PlaylistItem> dequeue() throws IOException {
 
-        HttpResponse<KareokePlaylistItemResponse> playlistItemResponse = new HttpRequestBuilder(source.getUrlFromPath(DEQUEUE_URL))
+        HttpResponse<KareokePlaylistItemResponse> playlistItemResponse = new HttpRequestBuilder(source.getUrlFromPath(getDequeueUrl()))
                 .method(DELETE)
                 .send(KareokePlaylistItemResponse.class, ResponseType.JSON);
         return playlistItemResponse.getBody().map(KareokePlaylistItemResponse::toPlaylistItem);

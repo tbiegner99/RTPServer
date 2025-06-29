@@ -46,6 +46,7 @@ public class RTSPServer extends Thread {
                     System.out.println("Connection acquired");
                     new RTSPConnection(client).start();
                 } catch (IOException e) {
+                    e.printStackTrace();
                 }
             }
             socket.close();

@@ -5,6 +5,7 @@ import com.rtp.packet.RTPPacketGeneratorFactory;
 import com.rtp.stream.playlist.Playlist;
 import com.rtp.stream.playlist.PlaylistItem;
 import com.rtp.stream.socket.SocketManager;
+import com.rtsp.server.rooms.Room;
 import com.tj.mp4.MediaInfo;
 import com.tj.mp4.TrackInfo;
 
@@ -15,19 +16,19 @@ import java.util.Optional;
 
 public class AVStreamManager implements MediaStreamManager, MediaListener {
 
+    private final List<MediaListener> listeners;
+    private final Playlist playlist;
     private Optional<MediaStream> audioStream = Optional.empty();
     private Optional<MediaStream> videoStream = Optional.empty();
-    private Playlist playlist;
-    private Optional<PlaylistItem> currentItem;
     private StreamState state = StreamState.INITIALIZING;
     private boolean repeat;
-    private List<MediaListener> listeners;
     private float totalTime = 0;
     private long realTime = 0;
 
 
-    public AVStreamManager() {
+    public AVStreamManager(Playlist playlist) {
         listeners = new ArrayList<>();
+        this.playlist = playlist;
     }
 
     private void addVideoStream(MediaStream stream) {
@@ -54,7 +55,6 @@ public class AVStreamManager implements MediaStreamManager, MediaListener {
         stream.addMediaListener(this);
         //TODO: handle end of stream
         MediaInfo media = playlist.getCurrentItem();
-        this.currentItem = playlist.getCurrentItemMetadata();
         RTPPacketGenerator generator = RTPPacketGeneratorFactory.getPacketGenerator(streamType, media);
         stream.setupMedia(generator);
         return stream;
@@ -65,10 +65,9 @@ public class AVStreamManager implements MediaStreamManager, MediaListener {
     }
 
     @Override
-    public void createMediaStream(Playlist playlist, StreamType streamType, SocketManager socketManager) throws IOException {
-        this.playlist = playlist;
-        playlist.next();
-        MediaStream stream = setupStreamWithNextItemInPlaylist(streamType, socketManager);
+    public void createMediaStream(Playlist playlist, StreamType streamType, Room room) throws IOException {
+        SocketManager socket = room.getSocketOfType(streamType);
+        MediaStream stream = setupStreamWithNextItemInPlaylist(streamType, socket);
         switch (streamType) {
             case AUDIO:
                 addAudioStream(stream);
@@ -119,14 +118,13 @@ public class AVStreamManager implements MediaStreamManager, MediaListener {
             float nextTrackStart = totalTime + elapsedTimeInSeconds + 5;
             totalTime = nextTrackStart;
             playlist.next();
-            currentItem = playlist.getCurrentItemMetadata();
             loadNextMedia(totalTime);
         }
     }
 
     @Override
     public Optional<PlaylistItem> getCurrentMedia() {
-        return currentItem;
+        return this.playlist.getCurrentItemMetadata();
     }
 
     @Override

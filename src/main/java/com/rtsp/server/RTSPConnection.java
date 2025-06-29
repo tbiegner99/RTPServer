@@ -6,6 +6,8 @@ import com.rtsp.server.request.RTSPRequest;
 import com.rtsp.server.request.RTSPRequestProcessor;
 import com.rtsp.server.request.RTSPRequestReader;
 import com.rtsp.server.response.RTSPResponse;
+import com.rtsp.server.rooms.RoomManager;
+import com.rtsp.server.session.SessionInfo;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -14,13 +16,15 @@ import java.net.Socket;
 import java.net.URI;
 
 public class RTSPConnection extends Thread {
+    private final PrintWriter output;
+    private final RTSPRequestReader requestParser;
+    private final RTSPRequestProcessor requestProcessor;
+    private final Socket socket;
     private BufferedInputStream input;
-    private PrintWriter output;
-    private RTSPRequestReader requestParser;
-    private RTSPRequestProcessor requestProcessor;
-    private Socket socket;
     private Integer lastSequenceNumber;
     private URI currentResource;
+
+    private SessionInfo session;
 
     public RTSPConnection(Socket socket) throws IOException {
         //this.input = new BufferedInputStream(socket.getInputStream());
@@ -69,13 +73,25 @@ public class RTSPConnection extends Thread {
         this.writeToSocket(response.networkPrint());
     }
 
+    public void setSession(SessionInfo session) {
+        this.session = session;
+    }
+
     public void onSocketDisconnect() {
+        if (session != null && session.getRoom() != null) {
+            session.getRoom().remove(session.getId());
+            if (session.getRoom().isEmpty()) { //all participants have left stream
+                session.getRoom().close();
+                RoomManager.getRoomManager().remove(session.getRoom().getRoomId());
+            }
+        }
         try {
             socket.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
         output.close();
+
     }
 
     @Override

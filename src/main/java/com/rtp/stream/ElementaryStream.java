@@ -10,20 +10,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ElementaryStream extends Thread implements MediaStream {
+    private final SocketManager socketManager;
+    private final List<MediaListener> listeners;
+    private final StreamType streamType;
     private int lastSequenceNumber;
     private float initialTimeOffset = 0;
-    private SocketManager socketManager;
     private boolean isTerminated = false;
     private RTPPacketGenerator generator;
-    private List<MediaListener> listeners;
     private boolean isPaused;
     private StreamState state;
     private boolean isStarted = false;
     private boolean finished;
-
     private long trackStart;
-
-    private StreamType streamType;
 
     public ElementaryStream(StreamType type, SocketManager socket) {
         this(type, socket, 0, 0);
@@ -132,10 +130,10 @@ public class ElementaryStream extends Thread implements MediaStream {
             float trackOffsetSeconds = generator.getTrackInfo().getOffset() / 1000f;
             int timestampOffset = (int) ((initialTimeOffset + trackOffsetSeconds) * clockRate);
             int sequenceNumberOffset = this.lastSequenceNumber + 1;
-            boolean log = ApplicationProperties.getProperty("RTP_LOGGING") == "true";
+            boolean log = ApplicationProperties.getProperty("RTP_LOGGING").equals("true") || System.getenv("RTP_LOGGING").equals("true");
             this.state = StreamState.READY;
             this.trackStart = System.currentTimeMillis();
-            while (isStarted && generator != null && generator.hasNext()) {
+            while (!isTerminated && isStarted && generator != null && generator.hasNext()) {
                 this.state = StreamState.PLAYING;
                 packet = generator.next();
                 long trackTime = (System.currentTimeMillis() - trackStart);
@@ -147,9 +145,9 @@ public class ElementaryStream extends Thread implements MediaStream {
                         .sequenceNumber(lastSequenceNumber)
                         .timestamp(packet.getTimestamp() + timestampOffset)
                         .build();
-                if (currentTimestamp - trackTime > 0) {
+                if (currentTimestamp - trackTime > 100) {
                     try {
-                        Thread.sleep(currentTimestamp - trackTime);
+                        Thread.sleep(currentTimestamp - trackTime - 100);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -166,16 +164,15 @@ public class ElementaryStream extends Thread implements MediaStream {
             }
             this.finished = true;
             this.state = StreamState.FINISHED;
-            for (MediaListener listener : listeners) {
-                listener.onMediaFinished(this, generator.getTrackInfo());
+            if (!isTerminated) {
+                for (MediaListener listener : listeners) {
+                    listener.onMediaFinished(this, generator.getTrackInfo());
+                }
             }
 
-
-            socketManager.close();
         } catch (Exception e) {
             e.printStackTrace();
             System.out.println("Packet size: " + packet.getSize());
-            return;
         }
     }
 

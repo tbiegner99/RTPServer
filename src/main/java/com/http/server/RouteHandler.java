@@ -10,8 +10,12 @@ import java.util.Optional;
 import java.util.function.Function;
 
 public class RouteHandler {
-    private Map<RequestMap, Function<HttpServerExchange, Object>> routeMaps = new HashMap<>();
+    private final Map<RequestMap, Function<HttpServerExchange, Object>> routeMaps = new HashMap<>();
     private Function<HttpServerExchange, Object> notFoundHandler;
+
+    public Map<RequestMap, Function<HttpServerExchange, Object>> getRouteMaps() {
+        return routeMaps;
+    }
 
     public RouteHandler get(String route, Function<HttpServerExchange, Object> handler) {
         routeMaps.put(new RequestMap(HttpMethod.GET, route), handler);

@@ -15,38 +15,59 @@ import java.net.DatagramSocket;
 public class RTPServer extends Thread {
     public static int SERVER_PORT = 4586;
     private static DatagramSocket socket;
-
-    public static void main(String[] args) {
-
-        RTPVideoPacketGenerator generator;
-        try {
-            //socket = new DatagramSocket(RTPServer.SERVER_PORT);
-            //String file = "E:\\Documents\\My Videos\\Brooklyn nine-nine\\Megamind-19.m4v";
-            //MediaInfo mediaInfo = MP4Reader.generateMediaInfo(file);
-            //generator = new RTPVideoPacketGenerator(mediaInfo.getTracks().get(0));
-            //ChannelManager.getChannelManager().setupChannel(1, mediaInfo);
-            int rtspPort = Integer.parseInt(ApplicationProperties.getProperty("RTSP_PORT"));
-            int httpPort = Integer.parseInt(ApplicationProperties.getProperty("HTTP_PORT"));
-            new RTSPServer(4586).start();
-            HttpRouteHandlers httpHandlers = new HttpRouteHandlers();
-            RouteHandler httpRoutes = new RouteHandler()
-                    .post("/skipCurrent", httpHandlers::skipCurrentSong)
-                    .get("/currentItem", httpHandlers::getCurrentSong);
-            HttpServer.start(httpPort, httpRoutes);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return;
-        }
-    }
-
+    private final RTPPacketGenerator generator;
+    private final SessionInfo session;
     private boolean isPaused = true;
-    private RTPPacketGenerator generator;
     private boolean isKilled = false;
-    private SessionInfo session;
 
     public RTPServer(SessionInfo sessionInfo, RTPPacketGenerator generator) {
         this.generator = generator;
         this.session = sessionInfo;
+    }
+
+    public static void main(String[] args) {
+
+        RTPVideoPacketGenerator generator;
+        // Read RTSP port from environment variable, fallback to 4586 if not set or invalid
+        int rtspPort = 4586;
+        String envPort = System.getenv("RTSP_PORT");
+        if (envPort != null) {
+            try {
+                rtspPort = Integer.parseInt(envPort);
+            } catch (NumberFormatException ignored) {
+                // Use default if parsing fails
+            }
+        }
+        // Read HTTP port from environment variable, fallback to ApplicationProperties if not set or invalid
+        Integer httpPort = null; // default fallback if both env and properties are missing/invalid
+        String envHttpPort = System.getenv("HTTP_PORT");
+        if (envHttpPort != null) {
+            try {
+                httpPort = Integer.parseInt(envHttpPort);
+            } catch (NumberFormatException ignored) {
+                // Use fallback below
+            }
+        }
+        if (httpPort == null) {
+            try {
+                httpPort = Integer.parseInt(ApplicationProperties.getProperty("HTTP_PORT"));
+            } catch (Exception ignored) {
+                // Use default if property is missing/invalid
+            }
+        }
+        if (httpPort == null) {
+            httpPort = 8080;
+        }
+        try {
+            new RTSPServer(rtspPort).start();
+            HttpRouteHandlers httpHandlers = new HttpRouteHandlers();
+            RouteHandler httpRoutes = new RouteHandler()
+                    .post("/{roomId}/skipCurrent", httpHandlers::skipCurrentSong)
+                    .get("/{roomId}/currentItem", httpHandlers::getCurrentSong);
+            HttpServer.start(httpPort, httpRoutes);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public void pause() {
@@ -66,12 +87,6 @@ public class RTPServer extends Thread {
         RTPPacket packet = null;
         try {
             while (generator.hasNext()) {
-				/*if (this.isPaused) {
-					try {
-						Thread.sleep(50);
-					} catch (InterruptedException e) {
-					}
-				}*/
                 if (this.isKilled) {
                     break;
                 }
@@ -79,15 +94,11 @@ public class RTPServer extends Thread {
                 if (packet.getSize() > 70000) {
                     System.out.println(packet.getSequenceNumber());
                 }
-                //DatagramPacket udpPacket = nextPacket(packet, session.getClientIp(), session.getPort());
-                //socket.send(udpPacket);
-
             }
             socket.close();
         } catch (Exception e) {
             e.printStackTrace();
             System.out.println("Packet size: " + packet.getSize());
-            return;
         }
 
     }

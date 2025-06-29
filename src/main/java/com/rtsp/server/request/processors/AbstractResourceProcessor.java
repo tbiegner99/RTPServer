@@ -4,7 +4,6 @@ import com.rtp.packet.RTPPacket;
 import com.rtp.stream.MediaListener;
 import com.rtp.stream.Stream;
 import com.rtp.stream.StreamType;
-import com.rtp.stream.playlist.Playlist;
 import com.rtp.stream.socket.SocketManager;
 import com.rtp.stream.socket.SocketManagerFactory;
 import com.rtp.stream.socket.StreamSocketType;
@@ -14,6 +13,7 @@ import com.rtsp.server.request.RTSPRequest;
 import com.rtsp.server.request.RTSPRequest.Type;
 import com.rtsp.server.response.RTSPResponse.Builder;
 import com.rtsp.server.response.SDPGenerator;
+import com.rtsp.server.rooms.Room;
 import com.rtsp.server.session.SessionInfo;
 import com.rtsp.server.session.SessionManager;
 import com.tj.mp4.MP4Reader;
@@ -30,7 +30,7 @@ import java.util.Optional;
 public abstract class AbstractResourceProcessor implements ResourceProcessor {
     public static final int AUDIO_PORT = 4590;
     public static final int VIDEO_PORT = 4592;
-    private static SessionManager sessionManager = SessionManager.getSessionManager();
+    private static final SessionManager sessionManager = SessionManager.getSessionManager();
 
     @Override
     public boolean isTypeSupported(Type type) {
@@ -46,14 +46,21 @@ public abstract class AbstractResourceProcessor implements ResourceProcessor {
         return strings;
     }
 
+    public SessionInfo createSession(RTSPRequest request, Room room) {
+        return sessionManager.getOrCreateSession(request, null, room);
+    }
+
+    public Room createRoom(RTSPRequest request) {
+        var room = new Room("-1", null);
+        return room;
+    }
+
     @Override
     public Builder processOptions(RTSPRequest request, Builder builder, RTSPConnection connection) {
+        authorizeRequest(request, connection);
         builder.header("Public", String.join(",", getSupportedTypesAsString()));
         return builder;
     }
-
-
-    public abstract Playlist getPlaylist(RTSPRequest request);
 
 
     @Override
@@ -70,14 +77,19 @@ public abstract class AbstractResourceProcessor implements ResourceProcessor {
     @Override
     public Builder processPlay(RTSPRequest request, Builder builder, RTSPConnection connection) {
         SessionInfo session = sessionManager.getSession(request);
-        session.getStreamManager().play();
+        session.getRoom().getStreamManager().play();
         return builder.header("Range", request.getHeader("Range"));
     }
 
     @Override
     public Builder processTeardown(RTSPRequest request, Builder builder, RTSPConnection connection) {
         SessionInfo session = sessionManager.getSession(request);
-        session.getStreamManager().terminate();
+        session.close();
+        sessionManager.endSession(session.getId());
+        if (session.getRoom().isEmpty()) {
+            session.getRoom().getStreamManager().terminate();
+            session.getRoom().close();
+        }
         return builder;
     }
 
@@ -99,6 +111,18 @@ public abstract class AbstractResourceProcessor implements ResourceProcessor {
         return StreamType.valueOf(streamTypeString.toUpperCase());
     }
 
+    public void authorizeRequest(RTSPRequest request, RTSPConnection connection) {
+        if ("true".equals(System.getenv("AUTH_REQUIRED"))) {
+            var token = request.pathComponents[2];
+            var authorizedApps = new String[]{
+                    "b7e8e2e2-1c2a-4e2e-8e2e-1c2a4e2e8e2e"
+            };
+            if (!Arrays.asList(authorizedApps).contains(token)) {
+                throw new RuntimeException("Unauthorized request: " + request.getResource());
+            }
+        }
+    }
+
     protected String generateSdpFromMediaInfo(MediaInfo info) {
         Optional<TrackInfo> video = info.getVideoTrack();
         Optional<TrackInfo> audio = info.getAudioTrackWithMediaType(MediaType.MP4A);
@@ -113,13 +137,11 @@ public abstract class AbstractResourceProcessor implements ResourceProcessor {
         }
     }
 
-    public Integer getSessionId() {
-        return -1;
-    }
 
     @Override
     public Builder processSetup(RTSPRequest request, Builder builder, RTSPConnection connection) {
         try {
+            authorizeRequest(request, connection);
             StreamType streamType = getStreamTypeFromSetupRequest(request);
             List<Integer> clientPorts = RTSPRequest.Helper.getClientPorts(request);
             SocketManager socketManager = SocketManagerFactory.buildSocketManager()
@@ -127,10 +149,14 @@ public abstract class AbstractResourceProcessor implements ResourceProcessor {
                     .withClientAddress(request.getClientAddress())
                     .withClientPort(clientPorts.get(0))
                     .build();
-            Playlist playlist = this.getPlaylist(request);
-            SessionInfo session = this.sessionManager.getOrCreateSession(request, this.getSessionId());
-            session.getStreamManager().createMediaStream(playlist, streamType, socketManager);
-            session.getStreamManager().addMediaListener(new RTSPSessionNotifier(session, connection));
+
+            Room room = this.createRoom(request);
+            SessionInfo session = this.createSession(request, room);
+            session.addSocket(streamType, socketManager);
+            room.add(session.getId(), session);
+            connection.setSession(session);
+            room.getStreamManager().createMediaStream(room.getPlaylist(), streamType, room);
+//            room.getStreamManager().addMediaListener(new RTSPSessionNotifier(session, connection));
             int serverPort = socketManager.getLocalPort();
             String transport = "RTP/AVP;unicast;client_port=" + clientPorts.get(0) + "-" + clientPorts.get(1)
                     + ";server_port=" + serverPort + "-" + (serverPort + 1) + ";ssrc="
@@ -148,6 +174,7 @@ public abstract class AbstractResourceProcessor implements ResourceProcessor {
     @Override
     public Builder processDescribe(RTSPRequest request, Builder builder, RTSPConnection connection) {
         try {
+            authorizeRequest(request, connection);
             String responseSdp = generateSdpFromRequest(request);
             return builder.header("Content-Type", "application/sdp")
                     .header("Content-Base", request.getResource())
@@ -192,7 +219,7 @@ public abstract class AbstractResourceProcessor implements ResourceProcessor {
     @Override
     public Builder processPause(RTSPRequest request, Builder builder, RTSPConnection connection) {
         SessionInfo session = sessionManager.getSession(request);
-        session.getStreamManager().pause();
+        session.getRoom().getStreamManager().pause();
         return builder;
     }
 
@@ -217,8 +244,8 @@ public abstract class AbstractResourceProcessor implements ResourceProcessor {
     }
 
     class RTSPSessionNotifier implements MediaListener {
-        private SessionInfo session;
-        private RTSPConnection connection;
+        private final SessionInfo session;
+        private final RTSPConnection connection;
 
         public RTSPSessionNotifier(SessionInfo session, RTSPConnection connection) {
             this.session = session;
