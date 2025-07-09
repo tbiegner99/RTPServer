@@ -30,7 +30,11 @@ public class ApplicationProperties {
         if (envVar != null) {
             return envVar;
         }
-        return getApplicationProperties().getAppProperty(key);
+        var property = getApplicationProperties().getAppProperty(key);
+        if (property == null) {
+            return "";
+        }
+        return property;
     }
 
     private static ApplicationProperties getApplicationProperties() {

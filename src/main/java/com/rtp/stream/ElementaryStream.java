@@ -130,7 +130,7 @@ public class ElementaryStream extends Thread implements MediaStream {
             float trackOffsetSeconds = generator.getTrackInfo().getOffset() / 1000f;
             int timestampOffset = (int) ((initialTimeOffset + trackOffsetSeconds) * clockRate);
             int sequenceNumberOffset = this.lastSequenceNumber + 1;
-            boolean log = ApplicationProperties.getProperty("RTP_LOGGING").equals("true") || System.getenv("RTP_LOGGING").equals("true");
+            boolean log = "true".equals(ApplicationProperties.getProperty("RTP_LOGGING"));
             this.state = StreamState.READY;
             this.trackStart = System.currentTimeMillis();
             while (!isTerminated && isStarted && generator != null && generator.hasNext()) {
